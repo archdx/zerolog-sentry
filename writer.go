@@ -107,10 +107,12 @@ func newStacktrace() *sentry.Stacktrace {
 	st := sentry.NewStacktrace()
 
 	threshold := len(st.Frames) - 1
+	// drop current module frames
 	for ; threshold > 0 && st.Frames[threshold].Module == currentModule; threshold-- {
 	}
 
 outer:
+	// try to drop previous zerolog module frames until logger call point
 	for i := threshold; i > 0; i-- {
 		if st.Frames[i].Module == zerologModule {
 			for j := i - 1; j >= 0; j-- {
