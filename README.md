@@ -1,4 +1,5 @@
 # zerolog-sentry
+[![Build Status](https://travis-ci.org/archdx/zerolog-sentry.svg?branch=master)](https://travis-ci.org/archdx/zerolog-sentry)
 
 ### Example
 ```go

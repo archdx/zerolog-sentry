@@ -2,7 +2,6 @@ package zlogsentry
 
 import (
 	"io"
-	"reflect"
 	"time"
 	"unsafe"
 
@@ -21,6 +20,8 @@ var levelsMapping = map[zerolog.Level]sentry.Level{
 }
 
 var _ = io.WriteCloser(new(Writer))
+
+var now = time.Now
 
 type Writer struct {
 	client *sentry.Client
@@ -71,7 +72,7 @@ func (w *Writer) parseLogEvent(data []byte) (*sentry.Event, bool) {
 	}
 
 	event := sentry.Event{
-		Timestamp: time.Now().UTC(),
+		Timestamp: now(),
 		Level:     sentryLvl,
 		Logger:    logger,
 	}
@@ -132,8 +133,7 @@ outer:
 }
 
 func bytesToStrUnsafe(data []byte) string {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&data))
-	return *(*string)(unsafe.Pointer(&reflect.StringHeader{Data: h.Data, Len: h.Len}))
+	return *(*string)(unsafe.Pointer(&data))
 }
 
 type WriterOption interface {
