@@ -2,6 +2,7 @@ package zlogsentry
 
 import (
 	"io"
+	"reflect"
 	"time"
 	"unsafe"
 
@@ -21,18 +22,21 @@ var levelsMapping = map[zerolog.Level]sentry.Level{
 
 var _ = io.WriteCloser(new(Writer))
 
-var now = time.Now
 
 type Writer struct {
 	client *sentry.Client
-
 	levels       map[zerolog.Level]struct{}
 	flushTimeout time.Duration
+	tags         map[string]string
+
 }
 
+
 func (w *Writer) Write(data []byte) (int, error) {
-	event, ok := w.parseLogEvent(data)
+
+	event,ok := w.parseLogEvent(data)
 	if ok {
+
 		w.client.CaptureEvent(event, nil, nil)
 		// should flush before os.Exit
 		if event.Level == sentry.LevelFatal {
@@ -48,33 +52,39 @@ func (w *Writer) Close() error {
 	return nil
 }
 
-func (w *Writer) parseLogEvent(data []byte) (*sentry.Event, bool) {
+
+
+func (w *Writer) parseLogEvent(data []byte) (*sentry.Event,bool) {
+	//var wp WriterOption
 	const logger = "zerolog"
+	//cfg := newDefaultConfig()
+	//wp.apply(&cfg)
 
 	lvlStr, err := jsonparser.GetUnsafeString(data, zerolog.LevelFieldName)
 	if err != nil {
-		return nil, false
+		return nil,false
 	}
 
 	lvl, err := zerolog.ParseLevel(lvlStr)
 	if err != nil {
-		return nil, false
+		return nil,false
 	}
 
 	_, enabled := w.levels[lvl]
 	if !enabled {
-		return nil, false
+		return nil,false
 	}
 
 	sentryLvl, ok := levelsMapping[lvl]
 	if !ok {
-		return nil, false
+		return nil,false
 	}
 
 	event := sentry.Event{
-		Timestamp: now(),
+		Timestamp: time.Now().UTC(),
 		Level:     sentryLvl,
 		Logger:    logger,
+		Tags:	   w.tags,
 	}
 
 	err = jsonparser.ObjectEach(data, func(key, value []byte, vt jsonparser.ValueType, offset int) error {
@@ -93,10 +103,10 @@ func (w *Writer) parseLogEvent(data []byte) (*sentry.Event, bool) {
 	})
 
 	if err != nil {
-		return nil, false
+		return nil,false
 	}
 
-	return &event, true
+	return &event,true
 }
 
 func newStacktrace() *sentry.Stacktrace {
@@ -133,7 +143,8 @@ outer:
 }
 
 func bytesToStrUnsafe(data []byte) string {
-	return *(*string)(unsafe.Pointer(&data))
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&data))
+	return *(*string)(unsafe.Pointer(&reflect.StringHeader{Data: h.Data, Len: h.Len}))
 }
 
 type WriterOption interface {
@@ -152,6 +163,7 @@ type config struct {
 	serverName   string
 	debug        bool
 	flushTimeout time.Duration
+	btid         string
 }
 
 // WithLevels configures zerolog levels that have to be sent to Sentry. Default levels are error, fatal, panic
@@ -187,6 +199,14 @@ func WithServerName(serverName string) WriterOption {
 	})
 }
 
+func WithBtid (btid string) (WriterOption) {
+	return optionFunc(func(cfg *config) {
+		cfg.btid = btid
+	})
+}
+
+
+
 // WithDebug enables sentry client debug logs
 func WithDebug() WriterOption {
 	return optionFunc(func(cfg *config) {
@@ -194,11 +214,12 @@ func WithDebug() WriterOption {
 	})
 }
 
-func New(dsn string, opts ...WriterOption) (*Writer, error) {
+func New(dsn string, opts ...WriterOption) (*Writer,error) {
 	cfg := newDefaultConfig()
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}
+
 
 	client, err := sentry.NewClient(sentry.ClientOptions{
 		Dsn:         dsn,
@@ -207,27 +228,35 @@ func New(dsn string, opts ...WriterOption) (*Writer, error) {
 		Environment: cfg.environment,
 		ServerName:  cfg.serverName,
 		Debug:       cfg.debug,
+
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
+
 	levels := make(map[zerolog.Level]struct{}, len(cfg.levels))
 	for _, lvl := range cfg.levels {
 		levels[lvl] = struct{}{}
 	}
 
+	newtag := make(map[string]string)
+	newtag["btid"] = cfg.btid
+
+
 	return &Writer{
 		client:       client,
 		levels:       levels,
 		flushTimeout: cfg.flushTimeout,
+		tags:		  newtag,
 	}, nil
 }
 
 func newDefaultConfig() config {
 	return config{
 		levels: []zerolog.Level{
+			zerolog.WarnLevel,
 			zerolog.ErrorLevel,
 			zerolog.FatalLevel,
 			zerolog.PanicLevel,
