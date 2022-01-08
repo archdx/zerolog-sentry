@@ -101,23 +101,23 @@ func (w *Writer) parseLogEvent(data []byte) (*sentry.Event, bool) {
 
 func newStacktrace() *sentry.Stacktrace {
 	const (
-		currentModule = "github.com/archdx/zerolog-sentry"
-		zerologModule = "github.com/rs/zerolog"
+		module       = "github.com/archdx/zerolog-sentry"
+		loggerModule = "github.com/rs/zerolog"
 	)
 
 	st := sentry.NewStacktrace()
 
 	threshold := len(st.Frames) - 1
 	// drop current module frames
-	for ; threshold > 0 && st.Frames[threshold].Module == currentModule; threshold-- {
+	for ; threshold > 0 && st.Frames[threshold].Module == module; threshold-- {
 	}
 
 outer:
 	// try to drop zerolog module frames after logger call point
 	for i := threshold; i > 0; i-- {
-		if st.Frames[i].Module == zerologModule {
+		if st.Frames[i].Module == loggerModule {
 			for j := i - 1; j >= 0; j-- {
-				if st.Frames[j].Module != zerologModule {
+				if st.Frames[j].Module != loggerModule {
 					threshold = j
 					break outer
 				}
