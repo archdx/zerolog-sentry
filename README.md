@@ -1,5 +1,6 @@
 # zerolog-sentry
-[![Build Status](https://travis-ci.org/archdx/zerolog-sentry.svg?branch=master)](https://travis-ci.org/archdx/zerolog-sentry)
+[![Build Status](https://github.com/archdx/zerolog-sentry/workflows/test/badge.svg)](https://github.com/archdx/zerolog-sentry/actions)
+[![codecov](https://codecov.io/gh/archdx/zerolog-sentry/branch/master/graph/badge.svg)](https://codecov.io/gh/archdx/zerolog-sentry)
 
 ### Example
 ```go
@@ -27,4 +28,3 @@ func main() {
 }
 
 ```
-
