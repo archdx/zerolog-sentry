@@ -23,6 +23,7 @@ var _ = io.WriteCloser(new(Writer))
 
 var now = time.Now
 
+// Writer is a sentry events writer with std io.Writer iface.
 type Writer struct {
 	client *sentry.Client
 
@@ -30,6 +31,7 @@ type Writer struct {
 	flushTimeout time.Duration
 }
 
+// Write handles zerolog's json and sends events to sentry.
 func (w *Writer) Write(data []byte) (int, error) {
 	event, ok := w.parseLogEvent(data)
 	if ok {
@@ -43,6 +45,8 @@ func (w *Writer) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
+// Close forces client to flush all pending events.
+// Can be useful before application exits.
 func (w *Writer) Close() error {
 	w.client.Flush(w.flushTimeout)
 	return nil
@@ -136,6 +140,7 @@ func bytesToStrUnsafe(data []byte) string {
 	return *(*string)(unsafe.Pointer(&data))
 }
 
+// WriterOption configures sentry events writer.
 type WriterOption interface {
 	apply(*config)
 }
@@ -150,50 +155,63 @@ type config struct {
 	release      string
 	environment  string
 	serverName   string
+	ignoreErrors []string
 	debug        bool
 	flushTimeout time.Duration
 }
 
-// WithLevels configures zerolog levels that have to be sent to Sentry. Default levels are error, fatal, panic
+// WithLevels configures zerolog levels that have to be sent to Sentry.
+// Default levels are: error, fatal, panic.
 func WithLevels(levels ...zerolog.Level) WriterOption {
 	return optionFunc(func(cfg *config) {
 		cfg.levels = levels
 	})
 }
 
-// WithSampleRate configures the sample rate as a percentage of events to be sent in the range of 0.0 to 1.0
+// WithSampleRate configures the sample rate as a percentage of events to be sent in the range of 0.0 to 1.0.
 func WithSampleRate(rate float64) WriterOption {
 	return optionFunc(func(cfg *config) {
 		cfg.sampleRate = rate
 	})
 }
 
+// WithRelease configures the release to be sent with events.
 func WithRelease(release string) WriterOption {
 	return optionFunc(func(cfg *config) {
 		cfg.release = release
 	})
 }
 
+// WithEnvironment configures the environment to be sent with events.
 func WithEnvironment(environment string) WriterOption {
 	return optionFunc(func(cfg *config) {
 		cfg.environment = environment
 	})
 }
 
-// WithServerName configures the server name field for events. Default value is OS hostname
+// WithServerName configures the server name field for events. Default value is OS hostname.
 func WithServerName(serverName string) WriterOption {
 	return optionFunc(func(cfg *config) {
 		cfg.serverName = serverName
 	})
 }
 
-// WithDebug enables sentry client debug logs
+// WithIgnoreErrors configures the list of regexp strings that will be used to match against event's message
+// and if applicable, caught errors type and value. If the match is found, then a whole event will be dropped.
+func WithIgnoreErrors(reList []string) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.ignoreErrors = reList
+	})
+}
+
+// WithDebug enables sentry client debug logs.
 func WithDebug() WriterOption {
 	return optionFunc(func(cfg *config) {
 		cfg.debug = true
 	})
 }
 
+// New creates writer with provided DSN and options.
 func New(dsn string, opts ...WriterOption) (*Writer, error) {
 	cfg := newDefaultConfig()
 	for _, opt := range opts {
@@ -201,12 +219,13 @@ func New(dsn string, opts ...WriterOption) (*Writer, error) {
 	}
 
 	client, err := sentry.NewClient(sentry.ClientOptions{
-		Dsn:         dsn,
-		SampleRate:  cfg.sampleRate,
-		Release:     cfg.release,
-		Environment: cfg.environment,
-		ServerName:  cfg.serverName,
-		Debug:       cfg.debug,
+		Dsn:          dsn,
+		SampleRate:   cfg.sampleRate,
+		Release:      cfg.release,
+		Environment:  cfg.environment,
+		ServerName:   cfg.serverName,
+		IgnoreErrors: cfg.ignoreErrors,
+		Debug:        cfg.debug,
 	})
 
 	if err != nil {
