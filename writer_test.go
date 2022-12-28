@@ -30,6 +30,9 @@ func TestParseLogEvent(t *testing.T) {
 
 	require.Len(t, ev.Exception, 1)
 	assert.Equal(t, "dial timeout", ev.Exception[0].Value)
+
+	require.Len(t, ev.Extra, 1)
+	assert.Equal(t, "bee07485-2485-4f64-99e1-d10165884ca7", ev.Extra["requestId"])
 }
 
 func BenchmarkParseLogEvent(b *testing.B) {
