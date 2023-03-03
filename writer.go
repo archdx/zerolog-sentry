@@ -221,7 +221,7 @@ func New(dsn string, opts ...WriterOption) (*Writer, error) {
 		opt.apply(&cfg)
 	}
 
-	client, err := sentry.NewClient(sentry.ClientOptions{
+	err := sentry.Init(sentry.ClientOptions{
 		Dsn:          dsn,
 		SampleRate:   cfg.sampleRate,
 		Release:      cfg.release,
@@ -241,7 +241,7 @@ func New(dsn string, opts ...WriterOption) (*Writer, error) {
 	}
 
 	return &Writer{
-		client:       client,
+		client:       sentry.CurrentHub().Client(),
 		levels:       levels,
 		flushTimeout: cfg.flushTimeout,
 	}, nil
