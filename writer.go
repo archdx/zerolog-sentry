@@ -25,7 +25,7 @@ var now = time.Now
 
 // Writer is a sentry events writer with std io.Writer iface.
 type Writer struct {
-	client *sentry.Client
+	hub *sentry.Hub
 
 	levels       map[zerolog.Level]struct{}
 	flushTimeout time.Duration
@@ -35,10 +35,10 @@ type Writer struct {
 func (w *Writer) Write(data []byte) (int, error) {
 	event, ok := w.parseLogEvent(data)
 	if ok {
-		w.client.CaptureEvent(event, nil, nil)
+		w.hub.CaptureEvent(event)
 		// should flush before os.Exit
 		if event.Level == sentry.LevelFatal {
-			w.client.Flush(w.flushTimeout)
+			w.hub.Flush(w.flushTimeout)
 		}
 	}
 
@@ -48,7 +48,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 // Close forces client to flush all pending events.
 // Can be useful before application exits.
 func (w *Writer) Close() error {
-	w.client.Flush(w.flushTimeout)
+	w.hub.Flush(w.flushTimeout)
 	return nil
 }
 
@@ -241,7 +241,7 @@ func New(dsn string, opts ...WriterOption) (*Writer, error) {
 	}
 
 	return &Writer{
-		client:       sentry.CurrentHub().Client(),
+		hub:          sentry.CurrentHub(),
 		levels:       levels,
 		flushTimeout: cfg.flushTimeout,
 	}, nil
