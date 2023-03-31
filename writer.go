@@ -1,6 +1,7 @@
 package zlogsentry
 
 import (
+	"crypto/x509"
 	"io"
 	"time"
 	"unsafe"
@@ -160,6 +161,11 @@ type config struct {
 	serverName   string
 	ignoreErrors []string
 	debug        bool
+	tracing      bool
+	debugWriter  io.Writer
+	httpProxy    string
+	httpsProxy   string
+	caCerts      *x509.CertPool
 	flushTimeout time.Duration
 }
 
@@ -214,6 +220,41 @@ func WithDebug() WriterOption {
 	})
 }
 
+// WithTracing enables sentry client tracing.
+func WithTracing() WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.tracing = true
+	})
+}
+
+// WithDebugWriter enables sentry client tracing.
+func WithDebugWriter(w io.Writer) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.debugWriter = w
+	})
+}
+
+// WithHttpProxy enables sentry client tracing.
+func WithHttpProxy(proxy string) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.httpProxy = proxy
+	})
+}
+
+// WithHttpsProxy enables sentry client tracing.
+func WithHttpsProxy(proxy string) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.httpsProxy = proxy
+	})
+}
+
+// WithCaCerts enables sentry client tracing.
+func WithCaCerts(caCerts *x509.CertPool) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.caCerts = caCerts
+	})
+}
+
 // New creates writer with provided DSN and options.
 func New(dsn string, opts ...WriterOption) (*Writer, error) {
 	cfg := newDefaultConfig()
@@ -222,13 +263,18 @@ func New(dsn string, opts ...WriterOption) (*Writer, error) {
 	}
 
 	err := sentry.Init(sentry.ClientOptions{
-		Dsn:          dsn,
-		SampleRate:   cfg.sampleRate,
-		Release:      cfg.release,
-		Environment:  cfg.environment,
-		ServerName:   cfg.serverName,
-		IgnoreErrors: cfg.ignoreErrors,
-		Debug:        cfg.debug,
+		Dsn:           dsn,
+		SampleRate:    cfg.sampleRate,
+		Release:       cfg.release,
+		Environment:   cfg.environment,
+		ServerName:    cfg.serverName,
+		IgnoreErrors:  cfg.ignoreErrors,
+		Debug:         cfg.debug,
+		EnableTracing: cfg.tracing,
+		DebugWriter:   cfg.debugWriter,
+		HTTPProxy:     cfg.httpProxy,
+		HTTPSProxy:    cfg.httpsProxy,
+		CaCerts:       cfg.caCerts,
 	})
 
 	if err != nil {
