@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	w, err := zlogsentry.New("http://e35657dcf4fb4d7c98a1c0b8a9125088@localhost:9000/2")
+	w, err := zlogsentry.New("http://e35657dcf4fb4d7c98a1c0b8a9125088@localhost:9000/2", zlogsentry.WithEnvironment("dev"), zlogsentry.WithRelease("1.0.0"))
 	if err != nil {
 		stdlog.Fatal(err)
 	}
