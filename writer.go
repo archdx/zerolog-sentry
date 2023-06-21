@@ -33,8 +33,21 @@ type Writer struct {
 }
 
 // Write handles zerolog's json and sends events to sentry.
-func (w *Writer) Write(data []byte) (int, error) {
+func (w *Writer) Write(data []byte) (n int, err error) {
+	n = len(data)
+
+	lvl, err := w.parseLogLevel(data)
+	if err != nil {
+		return n, nil
+	}
+
+	if _, enabled := w.levels[lvl]; !enabled {
+		return
+	}
+
 	event, ok := w.parseLogEvent(data)
+	event.Level = levelsMapping[lvl]
+
 	if ok {
 		w.hub.CaptureEvent(event)
 		// should flush before os.Exit
@@ -43,7 +56,27 @@ func (w *Writer) Write(data []byte) (int, error) {
 		}
 	}
 
-	return len(data), nil
+	return
+}
+
+// implements zerolog.LevelWriter
+func (w *Writer) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
+	n = len(p)
+	if _, enabled := w.levels[level]; !enabled {
+		return
+	}
+
+	event, ok := w.parseLogEvent(p)
+	event.Level = levelsMapping[level]
+
+	if ok {
+		w.hub.CaptureEvent(event)
+		// should flush before os.Exit
+		if event.Level == sentry.LevelFatal {
+			w.hub.Flush(w.flushTimeout)
+		}
+	}
+	return
 }
 
 // Close forces client to flush all pending events.
@@ -53,37 +86,27 @@ func (w *Writer) Close() error {
 	return nil
 }
 
+// parses the log level from the encoded log
+func (w *Writer) parseLogLevel(data []byte) (zerolog.Level, error) {
+	lvlStr, err := jsonparser.GetUnsafeString(data, zerolog.LevelFieldName)
+	if err != nil {
+		return zerolog.Disabled, nil
+	}
+
+	return zerolog.ParseLevel(lvlStr)
+}
+
+// parses the event except the log level
 func (w *Writer) parseLogEvent(data []byte) (*sentry.Event, bool) {
 	const logger = "zerolog"
 
-	lvlStr, err := jsonparser.GetUnsafeString(data, zerolog.LevelFieldName)
-	if err != nil {
-		return nil, false
-	}
-
-	lvl, err := zerolog.ParseLevel(lvlStr)
-	if err != nil {
-		return nil, false
-	}
-
-	_, enabled := w.levels[lvl]
-	if !enabled {
-		return nil, false
-	}
-
-	sentryLvl, ok := levelsMapping[lvl]
-	if !ok {
-		return nil, false
-	}
-
 	event := sentry.Event{
 		Timestamp: now(),
-		Level:     sentryLvl,
 		Logger:    logger,
 		Extra:     map[string]interface{}{},
 	}
 
-	err = jsonparser.ObjectEach(data, func(key, value []byte, vt jsonparser.ValueType, offset int) error {
+	err := jsonparser.ObjectEach(data, func(key, value []byte, vt jsonparser.ValueType, offset int) error {
 		switch string(key) {
 		case zerolog.MessageFieldName:
 			event.Message = bytesToStrUnsafe(value)
@@ -99,7 +122,6 @@ func (w *Writer) parseLogEvent(data []byte) (*sentry.Event, bool) {
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, false
 	}
@@ -296,7 +318,6 @@ func New(dsn string, opts ...WriterOption) (*Writer, error) {
 		BeforeSend:       cfg.beforeSend,
 		TracesSampleRate: cfg.tracesSampleRate,
 	})
-
 	if err != nil {
 		return nil, err
 	}

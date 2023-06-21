@@ -22,6 +22,9 @@ func TestParseLogEvent(t *testing.T) {
 
 	ev, ok := w.parseLogEvent(logEventJSON)
 	require.True(t, ok)
+	zLevel, err := w.parseLogLevel(logEventJSON)
+	assert.Nil(t, err)
+	ev.Level = levelsMapping[zLevel]
 
 	assert.Equal(t, ts, ev.Timestamp)
 	assert.Equal(t, sentry.LevelError, ev.Level)
@@ -54,5 +57,49 @@ func BenchmarkParseLogEvent_DisabledLevel(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		w.parseLogEvent(logEventJSON)
+	}
+}
+
+func BenchmarkWriteLogEvent(b *testing.B) {
+	w, err := New("")
+	if err != nil {
+		b.Errorf("failed to create writer: %v", err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		_, _ = w.Write(logEventJSON)
+	}
+}
+
+func BenchmarkWriteLogEvent_Disabled(b *testing.B) {
+	w, err := New("", WithLevels(zerolog.FatalLevel))
+	if err != nil {
+		b.Errorf("failed to create writer: %v", err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		_, _ = w.Write(logEventJSON)
+	}
+}
+
+func BenchmarkWriteLogLevelEvent(b *testing.B) {
+	w, err := New("")
+	if err != nil {
+		b.Errorf("failed to create writer: %v", err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		_, _ = w.WriteLevel(zerolog.ErrorLevel, logEventJSON)
+	}
+}
+
+func BenchmarkWriteLogLevelEvent_DisabledLevel(b *testing.B) {
+	w, err := New("", WithLevels(zerolog.FatalLevel))
+	if err != nil {
+		b.Errorf("failed to create writer: %v", err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		_, _ = w.WriteLevel(zerolog.ErrorLevel, logEventJSON)
 	}
 }
