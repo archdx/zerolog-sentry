@@ -1,6 +1,7 @@
 package zlogsentry
 
 import (
+	"crypto/x509"
 	"io"
 	"time"
 	"unsafe"
@@ -152,15 +153,24 @@ type optionFunc func(*config)
 
 func (fn optionFunc) apply(c *config) { fn(c) }
 
+type EventHintCallback func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event
+
 type config struct {
-	levels       []zerolog.Level
-	sampleRate   float64
-	release      string
-	environment  string
-	serverName   string
-	ignoreErrors []string
-	debug        bool
-	flushTimeout time.Duration
+	levels           []zerolog.Level
+	sampleRate       float64
+	release          string
+	environment      string
+	serverName       string
+	ignoreErrors     []string
+	debug            bool
+	tracing          bool
+	debugWriter      io.Writer
+	httpProxy        string
+	httpsProxy       string
+	caCerts          *x509.CertPool
+	flushTimeout     time.Duration
+	beforeSend       sentry.EventProcessor
+	tracesSampleRate float64
 }
 
 // WithLevels configures zerolog levels that have to be sent to Sentry.
@@ -214,6 +224,55 @@ func WithDebug() WriterOption {
 	})
 }
 
+// WithTracing enables sentry client tracing.
+func WithTracing() WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.tracing = true
+	})
+}
+
+// WithTracingSampleRate sets tracing sample rate.
+func WithTracingSampleRate(tsr float64) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.tracesSampleRate = tsr
+	})
+}
+
+// WithBeforeSend sets a callback which is called before event is sent.
+func WithBeforeSend(beforeSend sentry.EventProcessor) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.beforeSend = beforeSend
+	})
+}
+
+// WithDebugWriter enables sentry client tracing.
+func WithDebugWriter(w io.Writer) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.debugWriter = w
+	})
+}
+
+// WithHttpProxy enables sentry client tracing.
+func WithHttpProxy(proxy string) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.httpProxy = proxy
+	})
+}
+
+// WithHttpsProxy enables sentry client tracing.
+func WithHttpsProxy(proxy string) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.httpsProxy = proxy
+	})
+}
+
+// WithCaCerts enables sentry client tracing.
+func WithCaCerts(caCerts *x509.CertPool) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.caCerts = caCerts
+	})
+}
+
 // New creates writer with provided DSN and options.
 func New(dsn string, opts ...WriterOption) (*Writer, error) {
 	cfg := newDefaultConfig()
@@ -222,13 +281,20 @@ func New(dsn string, opts ...WriterOption) (*Writer, error) {
 	}
 
 	err := sentry.Init(sentry.ClientOptions{
-		Dsn:          dsn,
-		SampleRate:   cfg.sampleRate,
-		Release:      cfg.release,
-		Environment:  cfg.environment,
-		ServerName:   cfg.serverName,
-		IgnoreErrors: cfg.ignoreErrors,
-		Debug:        cfg.debug,
+		Dsn:              dsn,
+		SampleRate:       cfg.sampleRate,
+		Release:          cfg.release,
+		Environment:      cfg.environment,
+		ServerName:       cfg.serverName,
+		IgnoreErrors:     cfg.ignoreErrors,
+		Debug:            cfg.debug,
+		EnableTracing:    cfg.tracing,
+		DebugWriter:      cfg.debugWriter,
+		HTTPProxy:        cfg.httpProxy,
+		HTTPSProxy:       cfg.httpsProxy,
+		CaCerts:          cfg.caCerts,
+		BeforeSend:       cfg.beforeSend,
+		TracesSampleRate: cfg.tracesSampleRate,
 	})
 
 	if err != nil {
