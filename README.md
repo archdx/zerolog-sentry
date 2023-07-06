@@ -6,7 +6,6 @@
 ```go
 import (
 	"errors"
-	"io"
 	stdlog "log"
 	"os"
 
@@ -22,7 +21,8 @@ func main() {
 
 	defer w.Close()
 
-	logger := zerolog.New(io.MultiWriter(w, os.Stdout)).With().Timestamp().Logger()
+	multi := zerolog.MultiLevelWriter(os.Stdout, w)
+	logger := zerolog.New(multi).With().Timestamp().Logger()
 
 	logger.Error().Err(errors.New("dial timeout")).Msg("test message")
 }
