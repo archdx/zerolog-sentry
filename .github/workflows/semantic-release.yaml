@@ -1,0 +1,17 @@
+name: Semantic Release
+on:
+  workflow_dispatch:
+jobs:
+  semantic-release:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.7.0
+      - name: Semantic release
+        run: npx semantic-release@19.0.3
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
