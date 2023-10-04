@@ -3,7 +3,7 @@ on:
   schedule:
     - cron:  '*/5 * * * *'
 jobs:
-  merge:
+  upstream-sync-check:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -20,6 +20,8 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_MENTIONS: ${{ secrets.SLACK_MENTIONS }}
         run: |
+          set +e
+          
           # Get SHA of the latest commit on from original Git repo (UPSTREAM).
           UPSTREAM_SHA=$(git ls-remote $UPSTREAM $UPSTREAM_BRANCH | awk '{print $1;}')
           echo "Upstream SHA: $UPSTREAM_SHA"
