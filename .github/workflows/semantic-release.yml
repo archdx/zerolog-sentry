@@ -1,8 +1,8 @@
-name: Semantic Release Update v00
+name: Semantic Release
 on:
   workflow_dispatch:
 jobs:
-  semantic-release-update-v00:
+  semantic-release:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out repository code
