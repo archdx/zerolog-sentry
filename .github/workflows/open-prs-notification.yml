@@ -1,9 +1,7 @@
 name: Open PRs Notification
-#on:
-#  schedule:
-#    - cron:  '*/5 * * * *'
 on:
-  workflow_dispatch:
+  schedule:
+    - cron:  '*/5 * * * *'
 jobs:
   open-prs-notification:
     runs-on: ubuntu-latest
