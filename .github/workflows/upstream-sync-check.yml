@@ -1,0 +1,43 @@
+name: Upstream sync check
+on:
+  schedule:
+    - cron:  '*/5 * * * *'
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Upstream sync check
+        env:
+          FORK: "https://github.com/Constructor-io/zerolog-sentry"
+          UPSTREAM: "https://github.com/archdx/zerolog-sentry"
+          UPSTREAM_BRANCH: "master"
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_MENTIONS: ${{ secrets.SLACK_MENTIONS }}
+        run: |
+          # Get SHA of the latest commit on from original Git repo (UPSTREAM).
+          UPSTREAM_SHA=$(git ls-remote $UPSTREAM $UPSTREAM_BRANCH | awk '{print $1;}')
+          echo "Upstream SHA: $UPSTREAM_SHA"
+          
+          # Check that upstream commit can be found in our forked Git repo. (We are in sync with latest upstream).
+          FOUND_UPSTREAM_SHA=$(git cat-file -t "$UPSTREAM_SHA")
+  
+          if [[ $FOUND_UPSTREAM_SHA == "commit" ]]; then
+            echo "$FORK in sync with latest $UPSTREAM."
+            exit 0
+          else
+            SLACK_MESSAGE="{\"text\": \"*Issue:* FORK NOT IN SYNC WITH LATEST UPSTREAM.\n*Fork:* $FORK\n*Upstream:* $UPSTREAM\n*Upstream commit SHA:* $UPSTREAM_SHA\n*Assigned to:* $SLACK_MENTIONS\"}"
+            SLACK_WEBHOOK_RESPONSE=$(curl -X POST -H 'Content-type: application/json' --data "$SLACK_MESSAGE" $SLACK_WEBHOOK_URL)
+            if [[ $SLACK_WEBHOOK_RESPONSE == "ok" ]]; then
+              echo "Slack message sent successfully."
+              exit 0
+            else
+              echo "Slack message failed to send with error: $SLACK_WEBHOOK_RESPONSE"
+              exit 1
+            fi
+          fi
