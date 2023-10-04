@@ -3,6 +3,7 @@ package zlogsentry
 import (
 	"crypto/x509"
 	"io"
+	"net/http"
 	"time"
 	"unsafe"
 
@@ -187,9 +188,11 @@ type config struct {
 	debug            bool
 	tracing          bool
 	debugWriter      io.Writer
+	httpClient       *http.Client
 	httpProxy        string
 	httpsProxy       string
 	caCerts          *x509.CertPool
+	maxErrorDepth    int
 	flushTimeout     time.Duration
 	beforeSend       sentry.EventProcessor
 	tracesSampleRate float64
@@ -274,6 +277,13 @@ func WithDebugWriter(w io.Writer) WriterOption {
 	})
 }
 
+// WithHttpClient sets custom http client.
+func WithHttpClient(httpClient *http.Client) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.httpClient = httpClient
+	})
+}
+
 // WithHttpProxy enables sentry client tracing.
 func WithHttpProxy(proxy string) WriterOption {
 	return optionFunc(func(cfg *config) {
@@ -295,6 +305,13 @@ func WithCaCerts(caCerts *x509.CertPool) WriterOption {
 	})
 }
 
+// WithMaxErrorDepth sets the max depth of error chain.
+func WithMaxErrorDepth(maxErrorDepth int) WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.maxErrorDepth = maxErrorDepth
+	})
+}
+
 // New creates writer with provided DSN and options.
 func New(dsn string, opts ...WriterOption) (*Writer, error) {
 	cfg := newDefaultConfig()
@@ -312,9 +329,11 @@ func New(dsn string, opts ...WriterOption) (*Writer, error) {
 		Debug:            cfg.debug,
 		EnableTracing:    cfg.tracing,
 		DebugWriter:      cfg.debugWriter,
+		HTTPClient:       cfg.httpClient,
 		HTTPProxy:        cfg.httpProxy,
 		HTTPSProxy:       cfg.httpsProxy,
 		CaCerts:          cfg.caCerts,
+		MaxErrorDepth:    cfg.maxErrorDepth,
 		BeforeSend:       cfg.beforeSend,
 		TracesSampleRate: cfg.tracesSampleRate,
 	})
