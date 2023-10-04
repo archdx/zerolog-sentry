@@ -11,6 +11,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Open PRs Notification
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_MENTIONS: ${{ secrets.SLACK_MENTIONS }}
         run: |
