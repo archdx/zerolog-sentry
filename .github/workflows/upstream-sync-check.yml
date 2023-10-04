@@ -33,7 +33,7 @@ jobs:
             echo "$FORK in sync with latest $UPSTREAM."
             exit 0
           else
-            SLACK_MESSAGE="{\"text\": \"*Issue:* FORK NOT IN SYNC WITH LATEST UPSTREAM.\n*Fork:* $FORK\n*Upstream:* $UPSTREAM\n*Upstream commit SHA:* $UPSTREAM_SHA\n*Assigned to:* $SLACK_MENTIONS\"}"
+            SLACK_MESSAGE="{\"text\": \"*Issue:* Fork not in sync with latest upstream.\n*Fork:* $FORK\n*Upstream:* $UPSTREAM\n*Upstream commit SHA:* $UPSTREAM_SHA\n*Assigned to:* $SLACK_MENTIONS\"}"
             SLACK_WEBHOOK_RESPONSE=$(curl -X POST -H 'Content-type: application/json' --data "$SLACK_MESSAGE" $SLACK_WEBHOOK_URL)
             if [[ $SLACK_WEBHOOK_RESPONSE == "ok" ]]; then
               echo "Slack message sent successfully."
