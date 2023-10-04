@@ -12,10 +12,24 @@ jobs:
       - name: Open PRs Notification
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: "https://github.com/Constructor-io/zerolog-sentry"
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_MENTIONS: ${{ secrets.SLACK_MENTIONS }}
         run: |
-          set +e
+          PR_LIST=$(gh pr list --repo $REPOSITORY)
+          echo "PR List: $PR_LIST"
           
-          PR_LIST=$(gh pr list)
-          echo "PR_LIST: $PR_LIST"
+          if [[ $PR_LIST == "" ]]; then
+            echo "No open PRs found."
+            exit 0
+          else
+            SLACK_MESSAGE="{\"text\": \"*Issue:* Found open PRs.\n*Repository:* $REPOSITORY\n*Assigned to:* $SLACK_MENTIONS\"}"
+            SLACK_WEBHOOK_RESPONSE=$(curl -X POST -H 'Content-type: application/json' --data "$SLACK_MESSAGE" $SLACK_WEBHOOK_URL)
+            if [[ $SLACK_WEBHOOK_RESPONSE == "ok" ]]; then
+              echo "Slack message sent successfully."
+              exit 0
+            else
+              echo "Slack message failed to send with error: $SLACK_WEBHOOK_RESPONSE"
+              exit 1
+            fi
+          fi
