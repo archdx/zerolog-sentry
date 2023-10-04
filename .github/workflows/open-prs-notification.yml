@@ -1,0 +1,20 @@
+name: Open PRs Notification
+#on:
+#  schedule:
+#    - cron:  '*/5 * * * *'
+on:
+  workflow_dispatch:
+jobs:
+  open-prs-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Open PRs Notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_MENTIONS: ${{ secrets.SLACK_MENTIONS }}
+        run: |
+          set +e
+          
+          PR_LIST=$(gh pr list)
+          echo "PR_LIST: $PR_LIST"

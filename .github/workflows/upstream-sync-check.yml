@@ -1,4 +1,4 @@
-name: Upstream sync check
+name: Upstream Sync Check
 on:
   schedule:
     - cron:  '*/5 * * * *'
