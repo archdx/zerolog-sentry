@@ -1,8 +1,8 @@
-name: Semantic Release
+name: Semantic Release v3
 on:
   workflow_dispatch:
 jobs:
-  semantic-release:
+  semantic-release-v3:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out repository code
