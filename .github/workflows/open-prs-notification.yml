@@ -1,7 +1,7 @@
 name: Open PRs Notification
 on:
   schedule:
-    - cron:  '40 0/2 * * *'
+    - cron:  '15 10 * * *'
 jobs:
   open-prs-notification:
     runs-on: ubuntu-latest
