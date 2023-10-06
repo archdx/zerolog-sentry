@@ -83,7 +83,9 @@ func (w *Writer) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
 // Close forces client to flush all pending events.
 // Can be useful before application exits.
 func (w *Writer) Close() error {
-	w.hub.Flush(w.flushTimeout)
+	if ok := w.hub.Flush(w.flushTimeout); !ok {
+		return ErrFlushTimeout
+	}
 	return nil
 }
 
