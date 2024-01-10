@@ -79,6 +79,29 @@ func TestWrite(t *testing.T) {
 	require.True(t, beforeSendCalled)
 }
 
+func TestWrite_TraceDoesNotPanic(t *testing.T) {
+	beforeSendCalled := false
+	writer, err := New("", WithBeforeSend(func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+		beforeSendCalled = true
+		return event
+	}))
+	require.Nil(t, err)
+
+	var zerologError error
+	zerolog.ErrorHandler = func(err error) {
+		zerologError = err
+	}
+
+	// use io.MultiWriter to enforce using the Write() method
+	log := zerolog.New(io.MultiWriter(writer)).With().Timestamp().
+		Str("requestId", "bee07485-2485-4f64-99e1-d10165884ca7").
+		Logger()
+	log.Trace().Msg("test message")
+
+	require.Nil(t, zerologError)
+	require.False(t, beforeSendCalled)
+}
+
 func TestWriteLevel(t *testing.T) {
 	beforeSendCalled := false
 	writer, err := New("", WithBeforeSend(func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
