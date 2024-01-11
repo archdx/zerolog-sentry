@@ -67,8 +67,10 @@ func (w *Writer) Write(data []byte) (n int, err error) {
 	}
 
 	event, ok := w.parseLogEvent(data)
-	event.Level = levelsMapping[lvl]
-
+	if !ok {
+		return
+	}
+	event.Level, ok = levelsMapping[lvl]
 	if !ok {
 		return
 	}
