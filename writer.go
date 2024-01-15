@@ -30,8 +30,31 @@ var now = time.Now
 type Writer struct {
 	hub *sentry.Hub
 
-	levels       map[zerolog.Level]struct{}
-	flushTimeout time.Duration
+	levels          map[zerolog.Level]struct{}
+	flushTimeout    time.Duration
+	withBreadcrumbs bool
+}
+
+// addBreadcrumb adds event as a breadcrumb
+func (w *Writer) addBreadcrumb(event *sentry.Event) {
+	if !w.withBreadcrumbs {
+		return
+	}
+
+	// category is totally optional, but it's nice to have
+	var category string
+	if _, ok := event.Extra["category"]; ok {
+		if v, ok := event.Extra["category"].(string); ok {
+			category = v
+		}
+	}
+
+	w.hub.AddBreadcrumb(&sentry.Breadcrumb{
+		Category: category,
+		Message:  event.Message,
+		Level:    event.Level,
+		Data:     event.Extra,
+	}, nil)
 }
 
 // Write handles zerolog's json and sends events to sentry.
@@ -43,19 +66,25 @@ func (w *Writer) Write(data []byte) (n int, err error) {
 		return n, nil
 	}
 
-	if _, enabled := w.levels[lvl]; !enabled {
+	event, ok := w.parseLogEvent(data)
+	if !ok {
+		return
+	}
+	event.Level, ok = levelsMapping[lvl]
+	if !ok {
 		return
 	}
 
-	event, ok := w.parseLogEvent(data)
-	event.Level = levelsMapping[lvl]
+	if _, enabled := w.levels[lvl]; !enabled {
+		// if the level is not enabled, add event as a breadcrumb
+		w.addBreadcrumb(event)
+		return
+	}
 
-	if ok {
-		w.hub.CaptureEvent(event)
-		// should flush before os.Exit
-		if event.Level == sentry.LevelFatal {
-			w.hub.Flush(w.flushTimeout)
-		}
+	w.hub.CaptureEvent(event)
+	// should flush before os.Exit
+	if event.Level == sentry.LevelFatal {
+		w.hub.Flush(w.flushTimeout)
 	}
 
 	return
@@ -64,19 +93,26 @@ func (w *Writer) Write(data []byte) (n int, err error) {
 // implements zerolog.LevelWriter
 func (w *Writer) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
 	n = len(p)
-	if _, enabled := w.levels[level]; !enabled {
+
+	event, ok := w.parseLogEvent(p)
+	if !ok {
+		return
+	}
+	event.Level, ok = levelsMapping[level]
+	if !ok {
 		return
 	}
 
-	event, ok := w.parseLogEvent(p)
-	event.Level = levelsMapping[level]
+	if _, enabled := w.levels[level]; !enabled {
+		// if the level is not enabled, add event as a breadcrumb
+		w.addBreadcrumb(event)
+		return
+	}
 
-	if ok {
-		w.hub.CaptureEvent(event)
-		// should flush before os.Exit
-		if event.Level == sentry.LevelFatal {
-			w.hub.Flush(w.flushTimeout)
-		}
+	w.hub.CaptureEvent(event)
+	// should flush before os.Exit
+	if event.Level == sentry.LevelFatal {
+		w.hub.Flush(w.flushTimeout)
 	}
 	return
 }
@@ -188,6 +224,7 @@ type config struct {
 	environment      string
 	serverName       string
 	ignoreErrors     []string
+	breadcrumbs      bool
 	debug            bool
 	tracing          bool
 	debugWriter      io.Writer
@@ -242,6 +279,13 @@ func WithServerName(serverName string) WriterOption {
 func WithIgnoreErrors(reList []string) WriterOption {
 	return optionFunc(func(cfg *config) {
 		cfg.ignoreErrors = reList
+	})
+}
+
+// WithBreadcrumbs enables sentry client breadcrumbs.
+func WithBreadcrumbs() WriterOption {
+	return optionFunc(func(cfg *config) {
+		cfg.breadcrumbs = true
 	})
 }
 
@@ -350,9 +394,10 @@ func New(dsn string, opts ...WriterOption) (*Writer, error) {
 	}
 
 	return &Writer{
-		hub:          sentry.CurrentHub(),
-		levels:       levels,
-		flushTimeout: cfg.flushTimeout,
+		hub:             sentry.CurrentHub(),
+		levels:          levels,
+		flushTimeout:    cfg.flushTimeout,
+		withBreadcrumbs: cfg.breadcrumbs,
 	}, nil
 }
 
