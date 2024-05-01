@@ -49,11 +49,21 @@ func (w *Writer) addBreadcrumb(event *sentry.Event) {
 		}
 	}
 
+	var breadcrumbType string
+	switch event.Level {
+	case sentry.LevelFatal, sentry.LevelError:
+		breadcrumbType = "error"
+	default:
+		breadcrumbType = "default"
+	}
+
 	w.hub.AddBreadcrumb(&sentry.Breadcrumb{
-		Category: category,
-		Message:  event.Message,
-		Level:    event.Level,
-		Data:     event.Extra,
+		Type:      breadcrumbType,
+		Category:  category,
+		Message:   event.Message,
+		Level:     event.Level,
+		Data:      event.Extra,
+		Timestamp: event.Timestamp,
 	}, nil)
 }
 
